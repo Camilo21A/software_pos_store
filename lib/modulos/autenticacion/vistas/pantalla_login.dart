@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../datos/repositorio_auth.dart';
+import 'pantalla_principal.dart';
 
 class PantallaLogin extends StatefulWidget {
   const PantallaLogin({super.key});
@@ -25,11 +26,10 @@ class _PantallaLoginState extends State<PantallaLogin> {
       await _repositorio.login(_usernameCtrl.text, _passwordCtrl.text);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('¡Login exitoso!')),
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const PantallaPrincipal()),
+              (route) => false,
         );
-        // TODO: cuando exista, aquí se navega a la pantalla principal
-        // Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const PantallaPrincipal()));
       }
     } catch (e) {
       if (mounted) {
