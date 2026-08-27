@@ -3,6 +3,7 @@ import '../datos/repositorio_auth.dart';
 import '../datos/modelo_usuario.dart';
 import 'pantalla_login.dart';
 import 'pantalla_admin_tiendas.dart';
+import '../../inventario/vistas/pantalla_inventario.dart';
 
 class PantallaPrincipal extends StatefulWidget {
   const PantallaPrincipal({super.key});
@@ -87,7 +88,16 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
               ),
               const SizedBox(height: 12),
             ],
-
+            ElevatedButton.icon(
+              icon: const Icon(Icons.inventory_2),
+              label: const Text('Inventario'),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PantallaInventario()),
+              ),
+            ),
+            const SizedBox(height: 12),
+            
             const Text(
               'Bienvenido. Aquí irá el dashboard (RF-09).',
               style: TextStyle(fontSize: 16),
