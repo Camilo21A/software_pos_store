@@ -3,8 +3,7 @@ import '../datos/modelo_producto.dart';
 import '../datos/repositorio_inventario.dart';
 
 class PantallaFormularioProducto extends StatefulWidget {
-  final ModeloProducto? producto; // null = crear, con valor = editar
-
+  final ModeloProducto? producto;
   const PantallaFormularioProducto({super.key, this.producto});
 
   @override
@@ -14,29 +13,28 @@ class PantallaFormularioProducto extends StatefulWidget {
 
 class _PantallaFormularioProductoState
     extends State<PantallaFormularioProducto> {
-  final _formKey      = GlobalKey<FormState>();
-  final _repo         = RepositorioInventario();
-  bool _guardando     = false;
+  final _formKey     = GlobalKey<FormState>();
+  final _repo        = RepositorioInventario();
+  bool _guardando    = false;
+  bool _cargandoCategorias = true;
 
-  // Controladores
-  final _nombre        = TextEditingController();
-  final _precioVenta   = TextEditingController();
-  final _precioCompra  = TextEditingController();
-  final _stockActual   = TextEditingController();
-  final _stockMinimo   = TextEditingController();
-  final _codigoBarras  = TextEditingController();
-  final _sinonimos     = TextEditingController(); // separados por coma
+  final _nombre       = TextEditingController();
+  final _precioVenta  = TextEditingController();
+  final _precioCompra = TextEditingController();
+  final _stockActual  = TextEditingController();
+  final _stockMinimo  = TextEditingController();
+  final _codigoBarras = TextEditingController();
+  final _sinonimos    = TextEditingController();
 
-  List<ModeloCategoria> _categorias    = [];
+  List<ModeloCategoria> _categorias = [];
   int? _categoriaSeleccionada;
 
   @override
   void initState() {
     super.initState();
     _cargarCategorias().then((_) {
-      // Pre-llena los campos DESPUÉS de cargar categorías
       final p = widget.producto;
-      if (p != null) {
+      if (p != null && mounted) {
         setState(() {
           _nombre.text       = p.nombre;
           _precioVenta.text  = p.precioVenta.toStringAsFixed(0);
@@ -45,7 +43,8 @@ class _PantallaFormularioProductoState
           _stockMinimo.text  = p.stockMinimo.toString();
           _codigoBarras.text = p.codigoBarras ?? '';
           _sinonimos.text    = p.sinonimos.join(', ');
-          _categoriaSeleccionada = p.idCategoria;
+          final existe = _categorias.any((c) => c.idCategoria == p.idCategoria);
+          _categoriaSeleccionada = existe ? p.idCategoria : null;
         });
       }
     });
@@ -54,16 +53,21 @@ class _PantallaFormularioProductoState
   Future<void> _cargarCategorias() async {
     try {
       final lista = await _repo.obtenerCategorias();
-      setState(() => _categorias = lista);
-    } catch (_) {}
+      if (mounted) {
+        setState(() {
+          _categorias = lista;
+          _cargandoCategorias = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _cargandoCategorias = false);
+    }
   }
 
   Future<void> _guardar() async {
     if (!_formKey.currentState!.validate()) return;
-
     setState(() => _guardando = true);
 
-    // Convierte sinónimos de texto a lista
     final sinonimos = _sinonimos.text
         .split(',')
         .map((s) => s.trim())
@@ -72,12 +76,12 @@ class _PantallaFormularioProductoState
 
     final datos = {
       'nombre':        _nombre.text.trim(),
-      'precio_venta':  double.parse(_precioVenta.text),
+      'precio_venta':  double.tryParse(_precioVenta.text) ?? 0,
       'precio_compra': _precioCompra.text.isNotEmpty
-          ? double.parse(_precioCompra.text)
+          ? double.tryParse(_precioCompra.text)
           : null,
-      'stock_actual':  int.parse(_stockActual.text),
-      'stock_minimo':  int.parse(_stockMinimo.text),
+      'stock_actual':  int.tryParse(_stockActual.text) ?? 0,
+      'stock_minimo':  int.tryParse(_stockMinimo.text) ?? 5,
       'codigo_barras': _codigoBarras.text.isNotEmpty ? _codigoBarras.text : null,
       'sinonimos':     sinonimos,
       if (_categoriaSeleccionada != null) 'id_categoria': _categoriaSeleccionada,
@@ -89,27 +93,22 @@ class _PantallaFormularioProductoState
       } else {
         await _repo.actualizarProducto(widget.producto!.idProducto, datos);
       }
-
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(widget.producto == null
-                ? 'Producto creado exitosamente'
-                : 'Producto actualizado'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(widget.producto == null
+              ? 'Producto creado exitosamente'
+              : 'Producto actualizado'),
+          backgroundColor: Colors.green,
+        ));
         Navigator.pop(context);
       }
     } catch (e) {
       setState(() => _guardando = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al guardar: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error al guardar: $e'),
+          backgroundColor: Colors.red,
+        ));
       }
     }
   }
@@ -154,7 +153,6 @@ class _PantallaFormularioProductoState
           padding: const EdgeInsets.all(16),
           children: [
 
-            // Nombre
             _Campo(
               label: 'Nombre del producto *',
               controller: _nombre,
@@ -162,22 +160,35 @@ class _PantallaFormularioProductoState
             ),
             const SizedBox(height: 12),
 
-            // Categoría
-            DropdownButtonFormField<int>(
+            // Categoría con loader
+            _cargandoCategorias
+                ? const TextField(
+              decoration: InputDecoration(
+                labelText: 'Categoría',
+                hintText: 'Cargando...',
+                border: OutlineInputBorder(),
+                isDense: true,
+                contentPadding:
+                EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+              ),
+              enabled: false,
+            )
+                : DropdownButtonFormField<int>(
               value: _categoriaSeleccionada,
               decoration: _decoracion('Categoría'),
               items: [
-                const DropdownMenuItem(value: null, child: Text('Sin categoría')),
+                const DropdownMenuItem(
+                    value: null, child: Text('Sin categoría')),
                 ..._categorias.map((c) => DropdownMenuItem(
                   value: c.idCategoria,
                   child: Text(c.nombre),
                 )),
               ],
-              onChanged: (v) => setState(() => _categoriaSeleccionada = v),
+              onChanged: (v) =>
+                  setState(() => _categoriaSeleccionada = v),
             ),
             const SizedBox(height: 12),
 
-            // Precios
             Row(
               children: [
                 Expanded(
@@ -185,7 +196,11 @@ class _PantallaFormularioProductoState
                     label: 'Precio venta *',
                     controller: _precioVenta,
                     teclado: TextInputType.number,
-                    validator: (v) => v!.isEmpty ? 'Obligatorio' : null,
+                    validator: (v) {
+                      if (v == null || v.isEmpty) return 'Obligatorio';
+                      if (double.tryParse(v) == null) return 'Número inválido';
+                      return null;
+                    },
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -200,7 +215,6 @@ class _PantallaFormularioProductoState
             ),
             const SizedBox(height: 12),
 
-            // Stock
             Row(
               children: [
                 Expanded(
@@ -208,7 +222,11 @@ class _PantallaFormularioProductoState
                     label: 'Stock actual *',
                     controller: _stockActual,
                     teclado: TextInputType.number,
-                    validator: (v) => v!.isEmpty ? 'Obligatorio' : null,
+                    validator: (v) {
+                      if (v == null || v.isEmpty) return 'Obligatorio';
+                      if (int.tryParse(v) == null) return 'Número inválido';
+                      return null;
+                    },
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -223,7 +241,6 @@ class _PantallaFormularioProductoState
             ),
             const SizedBox(height: 12),
 
-            // Código de barras
             _Campo(
               label: 'Código de barras',
               controller: _codigoBarras,
@@ -231,7 +248,6 @@ class _PantallaFormularioProductoState
             ),
             const SizedBox(height: 12),
 
-            // Sinónimos
             _Campo(
               label: 'Sinónimos para voz (separados por coma)',
               controller: _sinonimos,
@@ -242,10 +258,8 @@ class _PantallaFormularioProductoState
               'Los sinónimos permiten encontrar el producto al vender por voz',
               style: TextStyle(fontSize: 12, color: Colors.grey),
             ),
-
             const SizedBox(height: 32),
 
-            // Botón guardar
             FilledButton(
               onPressed: _guardando ? null : _guardar,
               child: Text(esEdicion ? 'Actualizar producto' : 'Crear producto'),
@@ -257,7 +271,6 @@ class _PantallaFormularioProductoState
   }
 }
 
-// Widget reutilizable para campos de texto
 class _Campo extends StatelessWidget {
   final String label;
   final String? hint;
@@ -276,19 +289,19 @@ class _Campo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return TextFormField(
-      controller:  controller,
+      controller:   controller,
       keyboardType: teclado,
-      validator:   validator,
-      decoration:  _decoracion(label).copyWith(hintText: hint),
+      validator:    validator,
+      decoration:   _decoracion(label).copyWith(hintText: hint),
     );
   }
 }
 
 InputDecoration _decoracion(String label) {
   return InputDecoration(
-    labelText:    label,
-    border:       OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-    isDense:      true,
+    labelText:      label,
+    border:         OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+    isDense:        true,
     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
   );
 }

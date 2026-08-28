@@ -4,7 +4,7 @@ import '../datos/repositorio_inventario.dart';
 import 'pantalla_formulario_producto.dart';
 
 class PantallaInventario extends StatefulWidget {
-  final bool soloArchivados; // ← parámetro nuevo
+  final bool soloArchivados;
   const PantallaInventario({super.key, this.soloArchivados = false});
 
   @override
@@ -29,7 +29,7 @@ class _PantallaInventarioState extends State<PantallaInventario> {
     try {
       final lista = await _repo.obtenerProductos(
         nombre: nombre,
-        soloArchivados: widget.soloArchivados, // ← usa el parámetro
+        soloArchivados: widget.soloArchivados,
       );
       setState(() { _productos = lista; _cargando = false; });
     } catch (e) {
@@ -61,26 +61,88 @@ class _PantallaInventarioState extends State<PantallaInventario> {
     _cargarProductos();
   }
 
+  Future<void> _desarchivarProducto(ModeloProducto p) async {
+    await _repo.actualizarProducto(p.idProducto, {'activo': true});
+    _cargarProductos();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('"${p.nombre}" desarchivado'),
+        backgroundColor: Colors.green,
+      ));
+    }
+  }
+
+  Future<void> _crearCategoria() async {
+    final controller = TextEditingController();
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Nueva categoría'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Nombre de la categoría',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Crear'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar != true || controller.text.trim().isEmpty) return;
+
+    try {
+      await _repo.crearCategoria(controller.text.trim());
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Categoría "${controller.text.trim()}" creada'),
+          backgroundColor: Colors.green,
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error al crear categoría: $e'),
+          backgroundColor: Colors.red,
+        ));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.soloArchivados ? 'Productos archivados' : 'Inventario'),
         actions: [
-          // Solo muestra el botón de archivados cuando estamos en la vista normal
-          if (!widget.soloArchivados)
+          if (!widget.soloArchivados) ...[
+            IconButton(
+              icon: const Icon(Icons.category_outlined),
+              tooltip: 'Nueva categoría',
+              onPressed: _crearCategoria,
+            ),
             IconButton(
               icon: const Icon(Icons.archive_outlined),
               tooltip: 'Ver archivados',
               onPressed: () async {
-                await Navigator.push(
-                  context,
+                await Navigator.push(context,
                   MaterialPageRoute(
                     builder: (_) => const PantallaInventario(soloArchivados: true),
                   ),
                 );
               },
             ),
+          ],
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () => _cargarProductos(),
@@ -88,13 +150,12 @@ class _PantallaInventarioState extends State<PantallaInventario> {
         ],
       ),
       floatingActionButton: widget.soloArchivados
-          ? null // sin botón en vista archivados
+          ? null
           : FloatingActionButton.extended(
         icon: const Icon(Icons.add),
         label: const Text('Nuevo producto'),
         onPressed: () async {
-          await Navigator.push(
-            context,
+          await Navigator.push(context,
             MaterialPageRoute(
               builder: (_) => const PantallaFormularioProducto(),
             ),
@@ -120,9 +181,7 @@ class _PantallaInventarioState extends State<PantallaInventario> {
                   },
                 )
                     : null,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               ),
               onChanged: (v) => _cargarProductos(nombre: v.isEmpty ? null : v),
             ),
@@ -159,11 +218,10 @@ class _PantallaInventarioState extends State<PantallaInventario> {
               itemCount: _productos.length,
               separatorBuilder: (_, __) => const SizedBox(height: 8),
               itemBuilder: (_, i) => _TarjetaProducto(
-                producto: _productos[i],
+                producto:       _productos[i],
                 soloArchivados: widget.soloArchivados,
                 onEditar: () async {
-                  await Navigator.push(
-                    context,
+                  await Navigator.push(context,
                     MaterialPageRoute(
                       builder: (_) => PantallaFormularioProducto(
                         producto: _productos[i],
@@ -172,7 +230,8 @@ class _PantallaInventarioState extends State<PantallaInventario> {
                   );
                   _cargarProductos();
                 },
-                onArchivar: () => _archivarProducto(_productos[i]),
+                onArchivar:    () => _archivarProducto(_productos[i]),
+                onDesarchivar: () => _desarchivarProducto(_productos[i]),
               ),
             ),
           ),
@@ -187,12 +246,14 @@ class _TarjetaProducto extends StatelessWidget {
   final bool soloArchivados;
   final VoidCallback onEditar;
   final VoidCallback onArchivar;
+  final VoidCallback onDesarchivar;
 
   const _TarjetaProducto({
     required this.producto,
     required this.soloArchivados,
     required this.onEditar,
     required this.onArchivar,
+    required this.onDesarchivar,
   });
 
   @override
@@ -265,16 +326,23 @@ class _TarjetaProducto extends StatelessWidget {
               ),
           ],
         ),
-        // En archivados no se muestra menú de opciones
         trailing: soloArchivados
-            ? null
+            ? PopupMenuButton(
+          itemBuilder: (_) => [
+            const PopupMenuItem(
+                value: 'desarchivar', child: Text('Desarchivar')),
+          ],
+          onSelected: (v) {
+            if (v == 'desarchivar') onDesarchivar();
+          },
+        )
             : PopupMenuButton(
           itemBuilder: (_) => [
-            const PopupMenuItem(value: 'editar', child: Text('Editar')),
+            const PopupMenuItem(value: 'editar',   child: Text('Editar')),
             const PopupMenuItem(value: 'archivar', child: Text('Archivar')),
           ],
           onSelected: (v) {
-            if (v == 'editar') onEditar();
+            if (v == 'editar')   onEditar();
             if (v == 'archivar') onArchivar();
           },
         ),

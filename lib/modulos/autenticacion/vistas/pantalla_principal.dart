@@ -88,16 +88,20 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
               ),
               const SizedBox(height: 12),
             ],
-            ElevatedButton.icon(
-              icon: const Icon(Icons.inventory_2),
-              label: const Text('Inventario'),
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const PantallaInventario()),
+
+            // Solo aparece si NO es admin
+            if (!_sesion!.esAdmin) ...[
+              ElevatedButton.icon(
+                icon: const Icon(Icons.inventory_2),
+                label: const Text('Inventario'),
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const PantallaInventario()),
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            
+              const SizedBox(height: 12),
+            ],
+
             const Text(
               'Bienvenido. Aquí irá el dashboard (RF-09).',
               style: TextStyle(fontSize: 16),
