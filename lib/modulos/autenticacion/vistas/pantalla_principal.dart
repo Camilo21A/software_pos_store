@@ -4,6 +4,7 @@ import '../datos/modelo_usuario.dart';
 import 'pantalla_login.dart';
 import 'pantalla_admin_tiendas.dart';
 import '../../inventario/vistas/pantalla_inventario.dart';
+import '../../ventas/vistas/pantalla_nueva_venta.dart';
 
 class PantallaPrincipal extends StatefulWidget {
   const PantallaPrincipal({super.key});
@@ -91,6 +92,15 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
 
             // Solo aparece si NO es admin
             if (!_sesion!.esAdmin) ...[
+              ElevatedButton.icon(
+                icon: const Icon(Icons.point_of_sale),
+                label: const Text('Nueva venta'),
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const PantallaNuevaVenta()),
+                ),
+              ),
+              const SizedBox(height: 12),
               ElevatedButton.icon(
                 icon: const Icon(Icons.inventory_2),
                 label: const Text('Inventario'),
