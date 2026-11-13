@@ -123,6 +123,11 @@ class _PantallaNuevaVentaState extends State<PantallaNuevaVenta> {
       return;
     }
 
+    // Se guardan antes de cobrar, porque el carrito cambia después
+    final totalCobrado = _total;
+    final unidades     = _unidades;
+    final metodo       = _metodoPago[0].toUpperCase() + _metodoPago.substring(1);
+
     setState(() => _cobrando = true);
 
     try {
@@ -136,13 +141,35 @@ class _PantallaNuevaVentaState extends State<PantallaNuevaVenta> {
             .toList(),
       );
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('¡Venta registrada exitosamente!'),
-          backgroundColor: Colors.green,
-        ));
-        Navigator.pop(context);
-      }
+      if (!mounted) return;
+
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => AlertDialog(
+          icon: const Icon(Icons.check_circle, color: Colors.green, size: 48),
+          title: const Text('Venta registrada'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('\$${totalCobrado.toStringAsFixed(0)}',
+                  style: const TextStyle(
+                      fontSize: 32, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Text('$unidades unidades · $metodo',
+                  style: const TextStyle(color: Colors.grey)),
+            ],
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Listo'),
+            ),
+          ],
+        ),
+      );
+
+      if (mounted) Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
       setState(() => _cobrando = false);
