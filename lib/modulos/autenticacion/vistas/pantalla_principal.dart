@@ -5,6 +5,7 @@ import 'pantalla_login.dart';
 import 'pantalla_admin_tiendas.dart';
 import '../../inventario/vistas/pantalla_inventario.dart';
 import '../../ventas/vistas/pantalla_nueva_venta.dart';
+import '../../ventas/vistas/pantalla_historial_ventas.dart';
 
 class PantallaPrincipal extends StatefulWidget {
   const PantallaPrincipal({super.key});
@@ -107,6 +108,15 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
                 onPressed: () => Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const PantallaInventario()),
+                ),
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.receipt_long),
+                label: const Text('Historial de ventas'),
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const PantallaHistorialVentas()),
                 ),
               ),
               const SizedBox(height: 12),
